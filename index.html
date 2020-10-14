@@ -1,0 +1,174 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+
+    <!-- CSS Reset -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
+
+    <!-- Milligram CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css">
+    <link rel="stylesheet" href="styles.css">
+
+    <meta charset="utf-8">
+    <title>D3 Page Template</title>
+    <style>
+        body{ font-family: Helvetica, sans-serif;}
+    </style>
+    <script type="text/javascript" src="https://d3js.org/d3.v6.min.js"></script>
+
+    <!-- <script type="text/javascript" src="../d3.js"></script> -->
+</head>
+
+
+<body>  
+    <div class="chart">
+        <!-- You will append a SVG here-->
+        <div class="tooltip">
+            <!-- you will programmatically insert tooltip info here-->
+        </div>
+        <!-- <div class="legend">
+
+        </div> -->
+    </div>
+    <script type="text/javascript">
+        var csvdata;
+        var colorScale;
+        d3.csv('wealth-health-2014.csv', d3.autoType)
+                .then(data=>{
+                    console.log(data);
+                    csvdata = data;
+                    csvdata.sort((a,b)=>b.Population - a.Population);
+
+                    const margin = ({top: 20, right: 20, bottom: 40, left: 50});
+                    const w = 650 - margin.left - margin.right;
+                    const h = 500 - margin.top - margin.bottom;
+                    const max_radius = w / csvdata.length
+
+                    console.log(csvdata[0])
+
+                    const xScale = d3.scaleLinear() //Income is x axis
+                        .domain([d3.min(data, d=>d.Income),d3.max(data, d=>d.Income)])
+                        .range([0, w]) ;
+                    const yScale = d3.scaleLinear()
+                        .domain([d3.min(data, d=>d.LifeExpectancy), d3.max(data,d=>d.LifeExpectancy)])
+                        .range([h,0]);
+
+                    colorScale = d3.scaleOrdinal()
+                        .range(d3.schemeTableau10);
+                    const areaScale = d3.scalePow().exponent(0.5)
+                        .domain([0, d3.max(csvdata, d=>d.Population)])
+                        .range([1, max_radius * 10]);
+
+                    const xAxis = d3.axisBottom()
+                        .scale(xScale)
+                        .ticks(5, "s");
+                    
+                    const yAxis = d3.axisLeft()
+                        .scale(yScale)
+                        .ticks(5, "s");
+
+                    var svg = d3.select('.chart')
+                        .append('svg')
+                        .attr("width", w + margin.left + margin.right)
+                        .attr("height", h + margin.top + margin.bottom)
+                        .append("g")
+                        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+                    
+                    const maxIncome = 133563;
+                    console.log(xScale(maxIncome));
+
+                    var circles = svg.selectAll("circle")
+                        .data(csvdata)
+                        .enter()
+                        .append("circle")
+                        .attr('cx', d=>xScale(d.Income))
+                        .attr('cy', d=>yScale(d.LifeExpectancy))
+                        .attr("fill", d=>colorScale(d.Region))
+                        .attr("fill-opacity", .9)
+                        .attr("r", d=>areaScale(d.Population))
+                        .on("mouseenter", (event, d) => {
+                            
+                            const pos = d3.pointer(event, window);
+                            console.log(d);
+                            console.log(pos);
+                            console.log(pos[0] + "px");
+                            var tooltip = d3.select('.tooltip')
+                                .style('display', 'block')
+                                .style('position', 'fixed')
+                                .style('top', pos[1] + "px")
+                                .style('left', pos[0] + "px")
+                                // .text(d.Country + "\n" + d.Region);
+                                .html(
+                                    "<p id='tooltip'>Country: " +d.Country + "<br> Region: " + d.Region + "<br> Population: " + d3.format(",.2r")(d.Population) + "<br> Income: " + d3.format(",.2r")(d.Income) + "<br> Life Expectancy: " + d.LifeExpectancy + "</p>"
+                                    
+                                     // for mat your tooltip
+                                );
+                            
+                            // show the tooltip
+                        })
+                        .on("mouseleave", (event, d) => {
+                            // hide the tooltip
+                            d3.select('.tooltip').style('display', 'none');
+                        }); 
+                    
+                    var xAxisDisplay = svg.append("g")
+                        .attr("class", "axis x-axis")
+                        .call(xAxis)
+                        .attr("transform", `translate(0, ${h})`);
+                    
+                    var yAxisDisplay = svg.append("g")
+                        .attr("Class", "axis y-axis")
+                        .call(yAxis);
+                    
+                    var xLabel = svg.append("text")
+                        .attr('x', w/2)
+                        .attr('y', h + margin.bottom -5) 
+                        .attr('text-anchor', 'middle')
+                        .attr('alignment-baseline', 'middle')
+                        .attr('font-size',12)
+                        .attr('fill','grey')
+                        // add attrs such as alignment-baseline and text-anchor as necessary
+                        .text("Income");
+                    
+                    var yLabel = svg.append("text")
+                        .attr('x', 0 - margin.left + 15)
+                        .attr('y', h/2)
+                        .attr('text-anchor', 'middle')
+                        .attr('alignment-baseline', 'middle')
+                        .attr('writing-mode', 'vertical-lr')
+                        .attr('font-size', 12)
+                        .text("Life Expectancy");
+                    
+                    var fontSize = 10;
+
+                    var legend = svg.append("g")
+                        .attr("transform", "translate(" + w *2/3  + "," +  (margin.top + h - 1.5*fontSize*(colorScale.domain().length) - margin.bottom) + ")"); //`translate(0, ${h})`);
+
+                    var boxes = legend.selectAll("rect")
+                        .data(colorScale.domain())
+                        .enter()
+                        .append("rect")
+                        .attr("class", "box")
+                        .attr("height", fontSize) //match labels
+                        .attr("width", fontSize) //match labels 
+                        .attr('x', 5)
+                        .attr('y', (d,i) => 1.5*fontSize * i) //15 is width of pixels (10) + 5px space
+                        .attr('fill', d=>colorScale(d));
+                    
+                    var labels = legend.selectAll("text")
+                        .data(colorScale.domain())
+                        .enter()
+                        .append("text")
+                        .text(d=>d)
+                        .attr('x', fontSize + 10)
+                        .attr('y', (d,i) => 1 + 1.5* fontSize * i)
+                        .attr('font-size', fontSize)
+                        .attr('text-anchor', 'beginning')
+                        .attr('alignment-baseline', 'hanging');
+                })
+    </script>
+</body>
+
+</html>
